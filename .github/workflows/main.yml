@@ -1,0 +1,50 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Create Project & Build APK
+        run: |
+          # 1. Fresh Flutter Project එකක් හදනවා
+          flutter create --org com.xnotes --project-name xnotes_app temp_app
+          cd temp_app
+
+          # 2. Fingerprint (Biometrics) support එක Auto configure කරනවා
+          sed -i 's/FlutterActivity/FlutterFragmentActivity/g' android/app/src/main/kotlin/com/xnotes/xnotes_app/MainActivity.kt || true
+          sed -i 's/import io.flutter.embedding.android.FlutterActivity/import io.flutter.embedding.android.FlutterFragmentActivity/g' android/app/src/main/kotlin/com/xnotes/xnotes_app/MainActivity.kt || true
+          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.USE_BIOMETRIC"\/>' android/app/src/main/AndroidManifest.xml
+
+          # 3. User ගේ files ටික Replace කරනවා
+          cp ../main.dart lib/main.dart
+          cp ../pubspec.yaml pubspec.yaml
+
+          # 4. Release APK එක Build කරනවා
+          flutter pub get
+          flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: xNotes-Pro-App
+          path: temp_app/build/app/outputs/flutter-apk/app-release.apk
